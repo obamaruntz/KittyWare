@@ -11,6 +11,7 @@
 #include <raw/icons.h>
 #include <imgui/imgui_internal.h>
 #include <raw/hashes.h>
+#include <cheat/settings.h>
 
 HWND hwnd;
 ImGuiIO* hook_io = nullptr;
@@ -72,7 +73,8 @@ inline int Render() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     io.IniFilename = nullptr;    io.LogFilename = nullptr;
 
-    io.Fonts->AddFontFromMemoryTTF(Sans, sizeof Sans, 22.0f);
+    ImFont* default_f = io.Fonts->AddFontFromMemoryTTF(Sans, sizeof Sans, 20.0f);
+    ImFont* larger_f = io.Fonts->AddFontFromMemoryTTF(Sans, sizeof Sans, 26.0f);
 
     static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
     ImFontConfig icons_config;
@@ -89,29 +91,99 @@ inline int Render() {
     ImGui_ImplDX9_Init(g_pd3dDevice);
 
     ImGuiStyle& style = GetStyle();
-    style.Colors[ImGuiCol_WindowBg] = fix(35, 35, 35, 255);
-
-    style.Colors[ImGuiCol_Button] = fix(23, 23, 23, 255);
-    style.Colors[ImGuiCol_ButtonHovered] = fix(28, 28, 28, 255);
-    style.Colors[ImGuiCol_ButtonActive] = fix(33, 33, 33, 255);
-
-    style.Colors[ImGuiCol_FrameBg] = fix(23, 23, 23, 255);
-    style.Colors[ImGuiCol_FrameBgHovered] = fix(28, 28, 28, 255);
-    style.Colors[ImGuiCol_FrameBgActive] = fix(33, 33, 33, 255);
-
-    style.Colors[ImGuiCol_ScrollbarGrab] = fix(33, 33, 33, 255);
-    style.Colors[ImGuiCol_ScrollbarGrabHovered] = fix(38, 38, 38, 255);
-    style.Colors[ImGuiCol_ScrollbarGrabActive] = fix(43, 43, 43, 255);
-
-    style.Colors[ImGuiCol_PopupBg] = fix(17, 17, 17, 255);
-    style.Colors[ImGuiCol_Border] = fix(22, 22, 22, 255);
+    style.Colors[ImGuiCol_Text] = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    style.Colors[ImGuiCol_TextDisabled] = ImVec4(0.729411780834198f, 0.7490196228027344f, 0.7372549176216125f, 1.0f);
+    style.Colors[ImGuiCol_WindowBg] = ImVec4(0.08627451211214066f, 0.08627451211214066f, 0.08627451211214066f, 0.9399999976158142f);
+    style.Colors[ImGuiCol_PopupBg] = ImVec4(0.0784313753247261f, 0.0784313753247261f, 0.0784313753247261f, 0.9399999976158142f);
+    style.Colors[ImGuiCol_Border] = ImVec4(0.1372549086809158f, 0.1372549086809158f, 0.1372549086809158f, 1.0f);
+    style.Colors[ImGuiCol_BorderShadow] = ImVec4(0.1372549086809158f, 0.1372549086809158f, 0.1372549086809158f, 1.0f);
+    style.Colors[ImGuiCol_FrameBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.5400000214576721f);
+    style.Colors[ImGuiCol_FrameBgHovered] = ImVec4(0.1764705926179886f, 0.1764705926179886f, 0.1764705926179886f, 0.4000000059604645f);
+    style.Colors[ImGuiCol_FrameBgActive] = ImVec4(0.2156862765550613f, 0.2156862765550613f, 0.2156862765550613f, 0.6700000166893005f);
+    style.Colors[ImGuiCol_TitleBg] = ImVec4(0.1372549086809158f, 0.1372549086809158f, 0.1372549086809158f, 0.6523605585098267f);
+    style.Colors[ImGuiCol_TitleBgActive] = ImVec4(0.1372549086809158f, 0.1372549086809158f, 0.1372549086809158f, 1.0f);
+    style.Colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.1372549086809158f, 0.1372549086809158f, 0.1372549086809158f, 0.6700000166893005f);
+    style.Colors[ImGuiCol_MenuBarBg] = ImVec4(0.2156862765550613f, 0.2156862765550613f, 0.2156862765550613f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarBg] = ImVec4(0.01960784383118153f, 0.01960784383118153f, 0.01960784383118153f, 0.5299999713897705f);
+    style.Colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.3098039329051971f, 0.3098039329051971f, 0.3098039329051971f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.407843142747879f, 0.407843142747879f, 0.407843142747879f, 1.0f);
+    style.Colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.5098039507865906f, 0.5098039507865906f, 0.5098039507865906f, 1.0f);
+    style.Colors[ImGuiCol_CheckMark] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_SliderGrab] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_SliderGrabActive] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_Button] = ImVec4(0.0f, 0.0f, 0.0f, 0.5411764979362488f);
+    style.Colors[ImGuiCol_ButtonHovered] = ImVec4(0.1764705926179886f, 0.1764705926179886f, 0.1764705926179886f, 0.4000000059604645f);
+    style.Colors[ImGuiCol_ButtonActive] = ImVec4(0.2156862765550613f, 0.2156862765550613f, 0.2156862765550613f, 0.6705882549285889f);
+    style.Colors[ImGuiCol_Header] = ImVec4(0.2156862765550613f, 0.2156862765550613f, 0.2156862765550613f, 1.0f);
+    style.Colors[ImGuiCol_HeaderHovered] = ImVec4(0.2705882489681244f, 0.2705882489681244f, 0.2705882489681244f, 1.0f);
+    style.Colors[ImGuiCol_HeaderActive] = ImVec4(0.3529411852359772f, 0.3529411852359772f, 0.3529411852359772f, 1.0f);
+    style.Colors[ImGuiCol_Separator] = ImVec4(0.1502146124839783f, 0.1502131074666977f, 0.1502131074666977f, 1.0f);
+    style.Colors[ImGuiCol_SeparatorHovered] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_SeparatorActive] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_ResizeGrip] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_ResizeGripHovered] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_ResizeGripActive] = ImVec4(0.9227467775344849f, 0.9227375388145447f, 0.9227375388145447f, 1.0f);
+    style.Colors[ImGuiCol_Tab] = ImVec4(0.2196078449487686f, 0.2196078449487686f, 0.2196078449487686f, 1.0f);
+    style.Colors[ImGuiCol_TabHovered] = ImVec4(0.2901960909366608f, 0.2901960909366608f, 0.2901960909366608f, 1.0f);
+    style.Colors[ImGuiCol_TabActive] = ImVec4(0.1764705926179886f, 0.1764705926179886f, 0.1764705926179886f, 1.0f);
+    style.Colors[ImGuiCol_TabUnfocused] = ImVec4(0.1974248886108398f, 0.1974229067564011f, 0.1974229067564011f, 0.9700000286102295f);
+    style.Colors[ImGuiCol_TabUnfocusedActive] = ImVec4(0.7081544995307922f, 0.708147406578064f, 0.708147406578064f, 1.0f);
+    style.Colors[ImGuiCol_PlotLines] = ImVec4(0.6078431606292725f, 0.6078431606292725f, 0.6078431606292725f, 1.0f);
+    style.Colors[ImGuiCol_PlotLinesHovered] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_PlotHistogram] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 1.0f);
+    style.Colors[ImGuiCol_PlotHistogramHovered] = ImVec4(0.364705890417099f, 0.0f, 0.0f, 1.0f);
+    style.Colors[ImGuiCol_TableHeaderBg] = ImVec4(0.4763948321342468f, 0.4763900637626648f, 0.4763900637626648f, 1.0f);
+    style.Colors[ImGuiCol_TableBorderStrong] = ImVec4(0.1372549086809158f, 0.1372549086809158f, 0.1372549086809158f, 1.0f);
+    style.Colors[ImGuiCol_TableBorderLight] = ImVec4(0.1372549086809158f, 0.1372549086809158f, 0.1372549086809158f, 1.0f);
+    style.Colors[ImGuiCol_TableRowBg] = ImVec4(0.0f, 0.0f, 0.0f, 0.0f);
+    style.Colors[ImGuiCol_TableRowBgAlt] = ImVec4(1.0f, 1.0f, 1.0f, 0.05999999865889549f);
+    style.Colors[ImGuiCol_TextSelectedBg] = ImVec4(0.2627451121807098f, 0.6352941393852234f, 0.8784313797950745f, 0.4377682209014893f);
+    style.Colors[ImGuiCol_DragDropTarget] = ImVec4(1.0f, 0.9999899864196777f, 0.9999899864196777f, 0.9656652212142944f);
+    style.Colors[ImGuiCol_NavHighlight] = ImVec4(0.407843142747879f, 0.407843142747879f, 0.407843142747879f, 1.0f);
+    style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.699999988079071f);
+    style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.2000000029802322f);
+    style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.3499999940395355f);
 
     style.TabRounding = 20.f;
     style.FrameRounding = 20.f;
     style.GrabRounding = 20.f;
     style.WindowRounding = 20.f;
     style.PopupRounding = 20.f;
-    style.ChildRounding = 20.f;
+    style.ChildRounding = 12.f;
+    style.WindowPadding = ImVec2(5.f, 5.f);
+    style.DisplayWindowPadding = ImVec2(5.f, 5.f);
+    style.DisplaySafeAreaPadding = ImVec2(5.f, 5.f);
+
+    style.Alpha = 1.0f;
+    style.DisabledAlpha = 0.6000000238418579f;
+    style.WindowPadding = ImVec2(6.0f, 3.0f);
+    style.WindowRounding = 10.0f;
+    style.WindowBorderSize = 1.0f;
+    style.WindowMinSize = ImVec2(32.0f, 32.0f);
+    style.WindowTitleAlign = ImVec2(0.5f, 0.5f);
+    style.WindowMenuButtonPosition = ImGuiDir_Left;
+    style.ChildRounding = 6.0f;
+    style.ChildBorderSize = 0.0f;
+    style.PopupRounding = 0.0f;
+    style.PopupBorderSize = 1.0f;
+    style.FramePadding = ImVec2(5.0f, 1.0f);
+    style.FrameRounding = 3.0f;
+    style.FrameBorderSize = 1.0f;
+    style.ItemSpacing = ImVec2(8.0f, 4.0f);
+    style.ItemInnerSpacing = ImVec2(4.0f, 4.0f);
+    style.CellPadding = ImVec2(4.0f, 2.0f);
+    style.IndentSpacing = 21.0f;
+    style.ColumnsMinSpacing = 6.0f;
+    style.ScrollbarSize = 13.0f;
+    style.ScrollbarRounding = 16.0f;
+    style.GrabMinSize = 20.0f;
+    style.GrabRounding = 2.0f;
+    style.TabRounding = 4.0f;
+    style.TabBorderSize = 1.0f;
+    style.TabMinWidthForCloseButton = 0.0f;
+    style.ColorButtonPosition = ImGuiDir_Right;
+    style.ButtonTextAlign = ImVec2(0.5f, 0.5f);
+    style.SelectableTextAlign = ImVec2(0.0f, 0.0f);
 
     ImVec4 clear_color = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
 
@@ -176,7 +248,8 @@ inline int Render() {
                 ImGuiWindowFlags_NoScrollbar |
                 ImGuiWindowFlags_NoCollapse |
                 ImGuiWindowFlags_NoResize |
-                ImGuiWindowFlags_NoMove
+                ImGuiWindowFlags_NoMove |
+                ImGuiWindowFlags_AlwaysUseWindowPadding
             );
 
             NavbarMenu();
@@ -189,38 +262,165 @@ inline int Render() {
                 float windowWidth = (ImGui::GetContentRegionAvail().x - totalSpacing) / 3.0f;
                 PushStyleColor(ImGuiCol_ChildBg, fix(25, 25, 25, 255));
 
-                ImGui::BeginChild("Self", ImVec2(windowWidth, 0));
-                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
-                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
-                ImGui::Text("Self");
+                BeginChild("Self", ImVec2(windowWidth, 0));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Self");
+                PopFont();
                 Separator();
-                ImGui::EndChild();
 
-                ImGui::SameLine(windowWidth + spacing);
-                ImGui::BeginChild("Weapon", ImVec2(windowWidth, 0));
-                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
-                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
-                ImGui::Text("Weapon");
-                Separator();
-                ImGui::EndChild();
+                Indent(10);
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Text("Run Speed Modifier");
+                SliderFloat("##runsm", &Settings::run_speed, 0.1f, 5.f, "%.1fx");
+                Text("Swim Speed Modifier");
+                SliderFloat("##swimsm", &Settings::swim_speed, 0.1f, 5.f, "%.1fx");
+                Checkbox("True Godmode", &Settings::godmode);
+                Checkbox("Demi Godmode", &Settings::demigod);
+                Checkbox("Superjump", &Settings::superjump);
+                // heal key
+                Checkbox("Noclip", &Settings::noclip);
+                Text("Noclip Speed");
+                SliderFloat("##nclipsped", &Settings::noclip_speed, 0.1f, 5.f, "%.1fx");
+                if (Button("Teleport to Waypoint", ImVec2(GetContentRegionAvail().x - 10, 0))) {}
+                if (Button("Fill Health", ImVec2(GetContentRegionAvail().x - 10, 0))) {}
+                if (Button("Fill Armour", ImVec2(GetContentRegionAvail().x - 10, 0))) {}
+                if (Button("Suicide", ImVec2(GetContentRegionAvail().x - 10, 0))) {}
+                PopItemWidth();
+                EndChild();
 
-                ImGui::SameLine((windowWidth + spacing) * 2);
-                ImGui::BeginChild("Vehicle", ImVec2(windowWidth, 0));
-                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
-                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
-                ImGui::Text("Vehicle");
+                SameLine(windowWidth + spacing);
+                BeginChild("Weapon", ImVec2(windowWidth, 0));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Weapon");
+                PopFont();
                 Separator();
-                ImGui::EndChild();
+                Indent(10);
+
+                Text("Weapon Damage Modifier");
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                SliderFloat("##wdm", &Settings::weap_dmg, 0.1f, 5.f, "%.1fx");
+                Text("Melee Damage Modifier");
+                SliderFloat("##mdm", &Settings::melee_dmg, 0.1f, 5.f, "%.1fx");
+                Checkbox("Remove Recoil", &Settings::no_recoil);
+                Checkbox("Remove Spread", &Settings::no_spread);
+                Checkbox("Remove Reload", &Settings::no_reload);
+                Checkbox("Quick Reload", &Settings::fast_reload);
+                Checkbox("Remove Range Limit", &Settings::no_range_limit);
+                PopItemWidth();
+                EndChild();
+
+                SameLine((windowWidth + spacing) * 2);
+                BeginChild("Vehicle", ImVec2(windowWidth, 0));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Vehicle");
+                PopFont();
+                Separator();
+                Indent(10);
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Checkbox("Vehicle Godmode", &Settings::veh_godmode);
+                Checkbox("Horn Boost", &Settings::horn_boost);
+                Text("Accelaration Modifier");
+                SliderFloat("##accmd", &Settings::veh_accel, 1.f, 1000.f, "%.1fx");
+                Text("Break Force Modifier");
+                SliderFloat("##dddd", &Settings::veh_break, 1.f, 1000.f, "%.1fx");
+                Text("Downforce Modifier");
+                SliderFloat("##downmd", &Settings::veh_down, 1.f, 1000.f, "%.1fx");
+                PopItemWidth();
+                EndChild();
 
                 PopStyleColor();
-                ImGui::EndChild();
+                EndChild();
                 break;
             }
-            case HEAD_AIM:
+            case HEAD_AIM: {
+                ImGui::BeginChild("##aim", ImVec2(ImGui::GetWindowWidth() - 20, ImGui::GetWindowHeight() - 20));
+                float windowWidth = (ImGui::GetContentRegionAvail().x - 10.f) / 2.0f;
+                PushStyleColor(ImGuiCol_ChildBg, fix(25, 25, 25, 255));
+
+                BeginChild("AimA", ImVec2(windowWidth, 0));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Aim Assistance");
+                PopFont();
+                Separator();
+
+                Indent(10);
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Checkbox("Aimbot (Hold)", &Settings::godmode);
+                Checkbox("Magic Bullet", &Settings::demigod);
+                Text("Force Body Aim");
+                Checkbox("Ignore Dead", &Settings::ignore_dead_aim);
+                Checkbox("Ignore NPCs", &Settings::ignore_npc_aim);
+                Checkbox("Ignore Friends", &Settings::ignore_friend_aim);
+                Checkbox("Ignore Unarmed", &Settings::ignore_without_weapon_aim);
+                PopItemWidth();
+                EndChild();
+                    
+                SameLine(windowWidth + spacing);
+                BeginChild("AimS", ImVec2(windowWidth, 0));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Aim Settings");
+                PopFont();
+                Separator();
+                Indent(10);
+
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Text("Field Of View");
+                SliderInt("##fov", &Settings::fov, 1, ImGui::GetIO().DisplaySize.x / 2, "%dpx");
+                Text("Horizontal Smoothing");
+                SliderInt("##hs", &Settings::smoothing_x, 0, 100, "%d%%");
+                Text("Vertical Smoothing");
+                SliderInt("##vs", &Settings::smoothing_y, 0, 100, "%d%%");
+                Text("Vertical Smoothing");
+                SliderFloat("##mdwm", &Settings::melee_dmg, 0.1f, 5.f, "%.1fx");
+
+                Text("Maximum Distance");
+                SliderInt("##axd", &Settings::aim_max_distance, 1, 1500, "%d%m");
+                Text("Miss Chance");
+                SliderInt("##missc", &Settings::miss_chance, 0, 100, "%d%%");
+
+                Text("Target Bone");
+                const char* bonesNames[] = {
+                                "Head",
+                                "Left Foot",
+                                "Right Foot",
+                                "Left Ankle",
+                                "Right Ankle",
+                                "Left Hand",
+                                "Right Hand",
+                                "Neck",
+                                "Abdomen",
+                                "Left Shoulder",
+                                "Right Shoulder",
+                                "Left Hip",
+                                "Right Hip",
+                                "Closest Bone",
+                };
+
+                Combo("##eee", &Settings::bone, bonesNames, IM_ARRAYSIZE(bonesNames));
+                
+                PopItemWidth();
+                EndChild();
+
+                PopStyleColor();
+                EndChild();
+                break;
+            }
             case HEAD_VISUAL:
             case HEAD_WORLD:
             case HEAD_MISCELLANEOUS:
             case HEAD_EXIT:
+                ShowWindow(hwnd, SW_HIDE);
+                exit(0);
                 break;
             }
             
@@ -264,6 +464,7 @@ inline void NavbarMenu() {
     using namespace ImGui;
     PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
     PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
+    PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
     PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
     PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
     PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
@@ -316,7 +517,7 @@ inline void NavbarMenu() {
     ImGui::PopFont();
 
     End();
-    PopStyleVar(2);
+    PopStyleVar(3);
     PopStyleColor(3);
 }
 
