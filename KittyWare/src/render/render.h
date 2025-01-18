@@ -1,12 +1,12 @@
 #pragma once
 #include <d3d9.h>
 #include <memory/memory.h>
-#include <misc/elements.h>
 #include <cache.h>
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_dx9.h>
 #include <imgui/imgui_impl_win32.h>
 #include <raw/logo.h>
+#include <raw/mont.h>
 #include <d3dx9tex.h>
 
 HWND hwnd;
@@ -38,30 +38,39 @@ enum heads {
 
 auto* Logo_Texture = LPDIRECT3DTEXTURE9();
 
-inline void Render() {
+inline ImFont* icons_font = nullptr;
+
+inline int Render() {
     using namespace ImGui;
 
     static bool min_size_set = false;
     static bool is_menu_visible = true;
 
-	Cache::menu_hwnd = hwnd;
+    hwnd = Cache::menu_hwnd;
 
     if (!CreateDeviceD3D(hwnd)) {
         CleanupDeviceD3D();
     }
 
+    ShowWindow(hwnd, SW_SHOWDEFAULT);
+    UpdateWindow(hwnd);
+
     IMGUI_CHECKVERSION();
     CreateContext();
     ImGuiIO& io = GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   
+    io.IniFilename = nullptr;
+    io.LogFilename = nullptr;
+
+    io.Fonts->AddFontFromMemoryTTF(Mont_Font, sizeof Mont_Font, 20.0f);
 
     hook_io = &GetIO();
 
-    StyleColorsDark();
-
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX9_Init(g_pd3dDevice);
+
+    StyleColorsDark();
 
     ImGuiStyle& style = GetStyle();
     style.Colors[ImGuiCol_WindowBg] = fix(15, 15, 15, 255);
@@ -81,11 +90,13 @@ inline void Render() {
     style.Colors[ImGuiCol_PopupBg] = fix(17, 17, 17, 255);
     style.Colors[ImGuiCol_Border] = fix(37, 37, 37, 255);
 
-    style.PopupRounding = 8.f;
+    style.TabRounding = 50.f;
+    style.FrameRounding = 50.f;
+    style.GrabRounding = 50.f;
+    style.WindowRounding = 50.f;
+    style.PopupRounding = 50.f;
 
     ImVec4 clear_color = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-
-    io.IniFilename = nullptr; // no imgui.ini file will be created
 
     D3DXCreateTextureFromFileInMemory(g_pd3dDevice, Logo, sizeof Logo, &Logo_Texture);
 
@@ -134,15 +145,19 @@ inline void Render() {
 
         static bool first_show = false;
         if (is_menu_visible) {
-            if (!first_show) first_show = true;
+            if (!first_show) {
+                ShowWindow(hwnd, SW_SHOW);
+                first_show = true;
+            }
 
             HCURSOR hCursor = LoadCursor(NULL, IDC_ARROW);
             SetCursor(hCursor);
-            PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
 
+            ImGui::SetNextWindowPos({ 0, 0 });
+            ImGui::SetNextWindowSize({ 800, 800 });
             Begin(
                 "KittyWare",
-                NULL,
+                &z,
                 ImGuiWindowFlags_NoTitleBar |
                 ImGuiWindowFlags_NoScrollbar |
                 ImGuiWindowFlags_NoCollapse |
@@ -154,29 +169,14 @@ inline void Render() {
             auto pos = window->Pos;
             auto size = window->Size;
 
-            BeginGroup(); {
-                Image(reinterpret_cast<void*>(Logo_Texture), ImVec2(300, 300));
+            BeginGroup();
+            {
 
-                if (Elements::Tab("Local", tab == HEAD_LOCAL), tab == HEAD_LOCAL);
-                NewLine();
-                if (Elements::Tab("Visual", tab == HEAD_VISUAL), tab == HEAD_VISUAL);
-                NewLine();
-                if (Elements::Tab("Aim", tab == HEAD_AIM), tab == HEAD_AIM);
-                NewLine();
-                if (Elements::Tab("World", tab == HEAD_WORLD), tab == HEAD_WORLD);
-                NewLine();
-                if (Elements::Tab("Misc", tab == HEAD_MISCELLANEOUS), tab == HEAD_MISCELLANEOUS)
-                NewLine();
-                if (Elements::Tab("Settings", tab == HEAD_SETTINGS), tab == HEAD_SETTINGS)
-
-                SetCursorPos({ size.x - 35, 13 });
-                if (Elements::Tab("Exit", tab == HEAD_EXIT), tab == HEAD_EXIT);
             }
             EndGroup();
 
             switch(tab) {
             case HEAD_LOCAL:
-
                 break;
             case HEAD_VISUAL:
                 break;
@@ -193,26 +193,50 @@ inline void Render() {
             case HEAD_EXIT:
                 break;
             }
+
+            End();
         }
+
+        EndFrame();
+        g_pd3dDevice->SetRenderState(D3DRS_ZENABLE, FALSE);
+        g_pd3dDevice->SetRenderState(D3DRS_ALPHABLENDENABLE, FALSE);
+        g_pd3dDevice->SetRenderState(D3DRS_SCISSORTESTENABLE, FALSE);
+        D3DCOLOR clear_col_dx = D3DCOLOR_RGBA((int)(clear_color.x * clear_color.w * 255.0f), (int)(clear_color.y * clear_color.w * 255.0f), (int)(clear_color.z * clear_color.w * 255.0f), (int)(clear_color.w * 255.0f));
+        g_pd3dDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, clear_col_dx, 1.0f, 0);
+        if (g_pd3dDevice->BeginScene() >= 0)
+        {
+            ImGui::Render();
+            ImGui_ImplDX9_RenderDrawData(GetDrawData());
+            g_pd3dDevice->EndScene();
+        }
+
+        HRESULT result = g_pd3dDevice->Present(NULL, NULL, NULL, NULL);
+
+        if (result == D3DERR_DEVICELOST && g_pd3dDevice->TestCooperativeLevel() == D3DERR_DEVICENOTRESET)
+            ResetDevice();
     }
+
+    ImGui_ImplDX9_Shutdown();
+    ImGui_ImplWin32_Shutdown();
+    DestroyContext();
+    CleanupDeviceD3D();
+    DestroyWindow(hwnd);
+    return 0;
 }
 
 inline bool CreateDeviceD3D(HWND hWnd) {
-    if ((g_pD3D = Direct3DCreate9(D3D_SDK_VERSION)) == NULL)
+    if ((g_pD3D = Direct3DCreate9(D3D_SDK_VERSION)) == nullptr)
         return false;
 
     ZeroMemory(&g_d3dpp, sizeof(g_d3dpp));
     g_d3dpp.Windowed = TRUE;
     g_d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;
-    g_d3dpp.MultiSampleQuality = D3DMULTISAMPLE_NONE;
-    g_d3dpp.BackBufferFormat = D3DFMT_A8R8G8B8;
-    g_d3dpp.BackBufferCount = 2;
+    g_d3dpp.BackBufferFormat = D3DFMT_UNKNOWN;
     g_d3dpp.EnableAutoDepthStencil = TRUE;
     g_d3dpp.AutoDepthStencilFormat = D3DFMT_D16;
-    g_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_ONE; // vsync
+    g_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
     if (g_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &g_d3dpp, &g_pd3dDevice) < 0)
         return false;
-
     return true;
 }
 
