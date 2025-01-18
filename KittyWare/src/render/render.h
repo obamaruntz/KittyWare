@@ -104,13 +104,14 @@ inline int Render() {
     style.Colors[ImGuiCol_ScrollbarGrabActive] = fix(43, 43, 43, 255);
 
     style.Colors[ImGuiCol_PopupBg] = fix(17, 17, 17, 255);
-    style.Colors[ImGuiCol_Border] = fix(37, 37, 37, 255);
+    style.Colors[ImGuiCol_Border] = fix(22, 22, 22, 255);
 
     style.TabRounding = 20.f;
     style.FrameRounding = 20.f;
     style.GrabRounding = 20.f;
     style.WindowRounding = 20.f;
     style.PopupRounding = 20.f;
+    style.ChildRounding = 20.f;
 
     ImVec4 clear_color = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
 
@@ -167,49 +168,60 @@ inline int Render() {
             PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
 
             SetNextWindowSize(ImVec2(1000, 500));
+            SetNextWindowPos(ImVec2(menu_pos.x, menu_pos.y + 80), ImGuiCond_Always);
             Begin(
                 "KittyWare",
                 NULL,
                 ImGuiWindowFlags_NoTitleBar |
                 ImGuiWindowFlags_NoScrollbar |
                 ImGuiWindowFlags_NoCollapse |
-                ImGuiWindowFlags_NoResize
+                ImGuiWindowFlags_NoResize |
+                ImGuiWindowFlags_NoMove
             );
-
-            menu_pos = GetWindowPos();
-            menu_size = GetWindowSize();
 
             NavbarMenu();
             
             switch (tab) {
-            case HEAD_LOCAL:
-                ImGui::BeginChild("##local", ImVec2(ImGui::GetWindowWidth() - 19, ImGui::GetWindowHeight() - 55));
+            case HEAD_LOCAL: {
+                ImGui::BeginChild("##local", ImVec2(ImGui::GetWindowWidth() - 20, ImGui::GetWindowHeight() - 20));
+                float spacing = 10.f;
+                float totalSpacing = spacing * 2;
+                float windowWidth = (ImGui::GetContentRegionAvail().x - totalSpacing) / 3.0f;
+                PushStyleColor(ImGuiCol_ChildBg, fix(25, 25, 25, 255));
 
-                float childHeight = ImGui::GetContentRegionAvail().y / 3.0f;
-
-                ImGui::BeginChild("Self", ImVec2(0, childHeight));
-                ImGui::Text("Self Content Here");
+                ImGui::BeginChild("Self", ImVec2(windowWidth, 0));
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                ImGui::Text("Self");
+                Separator();
                 ImGui::EndChild();
 
-                ImGui::Spacing();
-
-                ImGui::BeginChild("Weapon", ImVec2(0, childHeight));
-                ImGui::Text("Weapon Content Here");
+                ImGui::SameLine(windowWidth + spacing);
+                ImGui::BeginChild("Weapon", ImVec2(windowWidth, 0));
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                ImGui::Text("Weapon");
+                Separator();
                 ImGui::EndChild();
 
-                ImGui::Spacing();
-
-                ImGui::BeginChild("Vehicle", ImVec2(0, childHeight));
-                ImGui::Text("Vehicle Content Here");
+                ImGui::SameLine((windowWidth + spacing) * 2);
+                ImGui::BeginChild("Vehicle", ImVec2(windowWidth, 0));
+                ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                ImGui::Text("Vehicle");
+                Separator();
                 ImGui::EndChild();
 
+                PopStyleColor();
                 ImGui::EndChild();
+                break;
+            }
             case HEAD_AIM:
             case HEAD_VISUAL:
             case HEAD_WORLD:
             case HEAD_MISCELLANEOUS:
             case HEAD_EXIT:
-                printf("ew");
+                break;
             }
             
             End();
@@ -247,6 +259,7 @@ inline int Render() {
 
     return 0;
 }
+
 inline void NavbarMenu() {
     using namespace ImGui;
     PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
@@ -255,12 +268,14 @@ inline void NavbarMenu() {
     PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
     PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
 
-    SetNextWindowPos(ImVec2(menu_pos.x, menu_pos.y - 80), ImGuiCond_Always);
     Begin(
         "NavbarMenu",
         nullptr,
         ImGuiWindowFlags_NoDecoration
     );
+    menu_pos = GetWindowPos();
+    menu_size = GetWindowSize();
+
     SetWindowSize({ 1000, 70 });
 
     Image(reinterpret_cast<ImTextureID>(Logo_Texture), ImVec2(100, 50));
@@ -315,7 +330,7 @@ inline bool CreateDeviceD3D(HWND hWnd) {
     g_d3dpp.BackBufferFormat = D3DFMT_UNKNOWN;
     g_d3dpp.EnableAutoDepthStencil = TRUE;
     g_d3dpp.AutoDepthStencilFormat = D3DFMT_D16;
-    g_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
+    g_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
     if (g_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &g_d3dpp, &g_pd3dDevice) < 0)
         return false;
     return true;

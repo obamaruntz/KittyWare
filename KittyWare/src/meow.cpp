@@ -110,7 +110,6 @@ void GetOverlay()
         return;
     }
 
-
     Cache::menu_hwnd = overlay_hwnd;
     Console::Log<Console::PrintType::OK>("Medal Overlay has been extended into client area via DWM successfully!\n");
 
