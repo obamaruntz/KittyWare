@@ -164,10 +164,10 @@ inline int Render() {
                 ImGuiWindowFlags_NoResize
             );
 
-            auto window = ImGui::GetCurrentWindow();
-            auto draw = window->DrawList;
+            //auto window = ImGui::GetCurrentWindow();
+      /*      auto draw = window->DrawList;
             auto pos = window->Pos;
-            auto size = window->Size;
+            auto size = window->Size;*/
 
             BeginGroup();
             {
