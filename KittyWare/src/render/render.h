@@ -356,6 +356,8 @@ inline int Render() {
                 Checkbox("Aimbot (Hold)", &Settings::godmode);
                 Checkbox("Magic Bullet", &Settings::demigod);
                 Text("Force Body Aim");
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize("[...]").x - 10);
+                ImGui::Text("[...]");
                 Checkbox("Ignore Dead", &Settings::ignore_dead_aim);
                 Checkbox("Ignore NPCs", &Settings::ignore_npc_aim);
                 Checkbox("Ignore Friends", &Settings::ignore_friend_aim);
@@ -363,7 +365,7 @@ inline int Render() {
                 PopItemWidth();
                 EndChild();
                     
-                SameLine(windowWidth + spacing);
+                SameLine(windowWidth + 10.f);
                 BeginChild("AimS", ImVec2(windowWidth, 0));
                 SetCursorPosY(ImGui::GetCursorPosY() + 5);
                 SetCursorPosX(ImGui::GetCursorPosX() + 10);
@@ -380,8 +382,6 @@ inline int Render() {
                 SliderInt("##hs", &Settings::smoothing_x, 0, 100, "%d%%");
                 Text("Vertical Smoothing");
                 SliderInt("##vs", &Settings::smoothing_y, 0, 100, "%d%%");
-                Text("Vertical Smoothing");
-                SliderFloat("##mdwm", &Settings::melee_dmg, 0.1f, 5.f, "%.1fx");
 
                 Text("Maximum Distance");
                 SliderInt("##axd", &Settings::aim_max_distance, 1, 1500, "%d%m");
@@ -415,7 +415,177 @@ inline int Render() {
                 EndChild();
                 break;
             }
-            case HEAD_VISUAL:
+            case HEAD_VISUAL: {
+                ImGui::BeginChild("##visual", ImVec2(ImGui::GetWindowWidth() - 20, ImGui::GetWindowHeight() - 20));
+                float spacing = 10.f;
+                float totalSpacing = spacing * 2;
+                float windowWidth = (ImGui::GetContentRegionAvail().x - totalSpacing) / 3.0f;
+                PushStyleColor(ImGuiCol_ChildBg, fix(25, 25, 25, 255));
+
+                BeginChild("PEDESP", ImVec2(windowWidth, 0));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Ped ESP");
+                PopFont();
+                Separator();
+
+                Indent(10);
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Text("Maximum Distance");
+                SliderInt("##axdzz", &Settings::esp_max_distance, 1, 1500, "%d%m");
+                Checkbox("Ignore Self", &Settings::ignore_self);
+                Checkbox("Ignore NPCs", &Settings::ignore_npcs);
+                Checkbox("Ignore Dead", &Settings::ignore_dead);
+                Checkbox("Player Names", &Settings::player_names);
+                Checkbox("Bounding Box", &Settings::bounding_box);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##fzff", Settings::bounding_box_col, ImGuiColorEditFlags_NoInputs);
+                Checkbox("Filled Box", &Settings::filled_box);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##f22ff", Settings::filled_box_col, ImGuiColorEditFlags_NoInputs);
+                Checkbox("Skeleton", &Settings::skeletons);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##fdwff", Settings::skeleton_col, ImGuiColorEditFlags_NoInputs);
+                Checkbox("Healthbar", &Settings::healthbar);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##fwwff", Settings::healthbar_col, ImGuiColorEditFlags_NoInputs);
+                Checkbox("Armourbar", &Settings::armourbar);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##ffddf", Settings::armourbar_col, ImGuiColorEditFlags_NoInputs);
+                Checkbox("Hide Bar when empty", &Settings::emptybars);
+                PopItemWidth();
+                EndChild();
+                
+                SameLine(windowWidth + spacing);
+                BeginChild("VEHESP", ImVec2(windowWidth, ImGui::GetContentRegionAvail().x - 424));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Vehicle ESP");
+                PopFont();
+                Separator();
+                Indent(10);
+
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Text("Maximum Distance");
+                SliderInt("##axzzdzdsz", &Settings::veh_esp_max_distance, 1, 1500, "%d%m");
+                Checkbox("Ignore Own Vehicle", &Settings::no_recoil);
+                Checkbox("Driver Status", &Settings::v_driver_status);
+                Checkbox("Nametags", &Settings::v_nametags);
+                Checkbox("Lock Status", &Settings::v_lockstatus);
+                Checkbox("Distance", &Settings::v_distance);
+                PopItemWidth();
+                EndChild();
+
+                SameLine(windowWidth + spacing);
+                SetCursorPosY(ImGui::GetCursorPosY() + 235);
+
+                BeginChild("otherexsp", ImVec2(windowWidth, 148));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Friend ESP");
+                PopFont();
+                Separator();
+                Indent(10);
+
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Checkbox("Friend Override", &Settings::friend_override);
+                Text("Bounding Box");
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##fwwff", Settings::friend_bounding_box, ImGuiColorEditFlags_NoInputs);
+                Text("Filled Box");
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##fwwff", Settings::friend_filled_box, ImGuiColorEditFlags_NoInputs);
+                Text("Skeleton");
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##fwwff", Settings::friend_skeleton, ImGuiColorEditFlags_NoInputs);
+                PopItemWidth();
+                EndChild();
+
+                SameLine(windowWidth + spacing);
+                SetCursorPosY(ImGui::GetCursorPosY() + 393);
+
+                BeginChild("otherssexsp", ImVec2(windowWidth, 0));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Aim Options");
+                PopFont();
+                Separator();
+                Indent(10);
+
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Checkbox("Draw FOV", &Settings::draw_fov);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##fwwff", Settings::fov_color, ImGuiColorEditFlags_NoInputs);
+                PopItemWidth();
+                EndChild();
+
+                SameLine((windowWidth + spacing) * 2);
+                BeginChild("extraopts", ImVec2(windowWidth, ImGui::GetContentRegionAvail().x - 145));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Extra Options");
+                PopFont();
+                Separator();
+                Indent(10);
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Checkbox("Draw Player Info Widget", &Settings::draw_ped_info);
+                Checkbox("Draw Spectator List", &Settings::draw_spec_list);
+                Checkbox("Draw Crosshair (dot)", &Settings::xhair);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
+                ImGui::ColorEdit4("##fwwfdddf", Settings::xhair_color, ImGuiColorEditFlags_NoInputs);
+                Checkbox("Draw Players Looking Warning", &Settings::draw_look_warn);
+                Checkbox("Draw Hitmarkers", &Settings::hitmarkers);
+                PopItemWidth();
+                EndChild();
+
+                SameLine((windowWidth + spacing) * 2);
+                SetCursorPosY(ImGui::GetCursorPosY() + 180);
+
+                BeginChild("otherszzsexsp", ImVec2(windowWidth, 130));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Damage Numbers");
+                PopFont();
+                Separator();
+                Indent(10);
+
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Checkbox("Draw Damage Numbers", &Settings::draw_dmg_nums);
+                Text("Damage Number Duration");
+                SliderInt("##ddd", &Settings::dmg_nums_length, 1, 10, "%ds");
+                PopItemWidth();
+                EndChild();
+
+
+                SameLine((windowWidth + spacing) * 2);
+                SetCursorPosY(ImGui::GetCursorPosY() + 316);
+
+                BeginChild("otherszzzzzsexsp", ImVec2(windowWidth, 0));
+                SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                PushFont(larger_f);
+                Text("Bullet Tracers");
+                PopFont();
+                Separator();
+                Indent(10);
+
+                PushItemWidth(GetContentRegionAvail().x - 10.0f);
+                Checkbox("Enable Tracers", &Settings::tracers);
+                Text("Damage Number Duration");
+                SliderInt("##ddd", &Settings::tracers_length, 1, 10, "%ds");
+                PopItemWidth();
+                EndChild();
+
+                PopStyleColor();
+                EndChild();
+                break;
+            }
             case HEAD_WORLD:
             case HEAD_MISCELLANEOUS:
             case HEAD_EXIT:
