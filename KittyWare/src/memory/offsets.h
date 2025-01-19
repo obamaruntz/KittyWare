@@ -8,7 +8,7 @@ namespace Offsets
         run_speed_offset, frame_flags_offset, recoil_offset, spread_offset, range_offset, task_offset, waypoint_offset, globals_offset, ammo_offset,
         time_nop_x, time_nop_y, freecam_nop, time_offset, reload_multiplier_offset, body_health, tank_health, driver_offset;
 
-    void Set(int build)
+    inline void Set(int build)
     {
         switch (build)
         {

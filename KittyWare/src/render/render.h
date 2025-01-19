@@ -11,7 +11,10 @@
 #include <raw/icons.h>
 #include <imgui/imgui_internal.h>
 #include <raw/hashes.h>
+#include <raw/veh.h>
 #include <cheat/settings.h>
+#include <features/visual.h>
+#include <raw/espfont.h>
 
 HWND hwnd;
 ImGuiIO* hook_io = nullptr;
@@ -27,13 +30,52 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 ImVec2 menu_pos;
 ImVec2 menu_size;
+ImVec2 main_pos;
+ImVec2 main_size;
+
 void NavbarMenu();
+void RenderPedESPPreview();
+void RenderVehESPPreview();
+
+void MultiSelectCombo(const char* label, std::vector<const char*>& items, std::vector<bool>& selection);
 
 ImFont* fa;
+ImFont* espfont;
 
 ImVec4 fix(int w, int x, int y, int z) {
     return ImVec4(w * (1.0f / 255.0f), x * (1.0f / 255.0f), y * (1.0f / 255.0f), z * (1.0f / 255.0f));
 }
+
+ImU32 f_2_imcol(const float color[4]) {
+    return IM_COL32(
+        (int)(color[0] * 255),
+        (int)(color[1] * 255),
+        (int)(color[2] * 255),
+        (int)(color[3] * 255)
+    );
+}
+
+int calc_text_size(double distance) {
+    const int maxTextSize = 20;
+    const int minTextSize = 14;
+
+    int textSize = static_cast<int>((maxTextSize - minTextSize) * (1.0 / (1 + distance)) + minTextSize);
+
+    textSize = std::min<int>(maxTextSize, std::max<int>(minTextSize, textSize));
+
+    return textSize;
+}
+
+struct ped_struct {
+    Vector2 screen_head, screen_position, screen_foot;
+    Vector3 head, origin;
+    float height, width, width_real, angle;
+    int distance, health, armor, net_id, index;
+    std::vector<std::pair<Vector2, Vector2>> bones;
+    uint32_t weapon_name_hash;
+    std::string weapon_name, player_name, license;
+    bool is_npc, is_visible, is_friend;
+};
 
 enum heads {
     HEAD_LOCAL,
@@ -48,6 +90,7 @@ enum heads {
 static heads tab = HEAD_LOCAL;
 
 auto* Logo_Texture = LPDIRECT3DTEXTURE9();
+auto* Veh_Texture = LPDIRECT3DTEXTURE9();
 
 inline ImFont* icons_font = nullptr;
 
@@ -75,6 +118,7 @@ inline int Render() {
 
     ImFont* default_f = io.Fonts->AddFontFromMemoryTTF(Sans, sizeof Sans, 20.0f);
     ImFont* larger_f = io.Fonts->AddFontFromMemoryTTF(Sans, sizeof Sans, 26.0f);
+    espfont = io.Fonts ->AddFontFromMemoryTTF(esp_font, sizeof esp_font, 14.0f);
 
     static const ImWchar icon_ranges[] = { ICON_MIN_FA, ICON_MAX_FA, 0 };
     ImFontConfig icons_config;
@@ -188,6 +232,7 @@ inline int Render() {
     ImVec4 clear_color = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
 
     D3DXCreateTextureFromFileInMemory(g_pd3dDevice, Logo, sizeof Logo, &Logo_Texture);
+    D3DXCreateTextureFromFileInMemory(g_pd3dDevice, VehESPPreview_Image, sizeof VehESPPreview_Image, &Veh_Texture);
 
     bool done = false;
     while (!done) {
@@ -214,12 +259,7 @@ inline int Render() {
         ImGui_ImplWin32_NewFrame();
         NewFrame();
 
-        POINT p;
-
-        if (GetCursorPos(&p)) {
-            io.MousePos.x = p.x;
-            io.MousePos.y = p.y;
-        }
+        Visual::RenderAllVisuals(ImGui::GetBackgroundDrawList(), ImGui::GetIO());
 
         io.MouseDown[0] = GetAsyncKeyState(VK_LBUTTON) & 0x8000;
         io.MouseDown[1] = GetAsyncKeyState(VK_RBUTTON) & 0x8000;
@@ -252,8 +292,11 @@ inline int Render() {
                 ImGuiWindowFlags_AlwaysUseWindowPadding
             );
 
+            main_pos = GetWindowPos();
+            main_size = GetWindowSize();
+
             NavbarMenu();
-            
+
             switch (tab) {
             case HEAD_LOCAL: {
                 ImGui::BeginChild("##local", ImVec2(ImGui::GetWindowWidth() - 20, ImGui::GetWindowHeight() - 20));
@@ -354,6 +397,8 @@ inline int Render() {
                 Indent(10);
                 PushItemWidth(GetContentRegionAvail().x - 10.0f);
                 Checkbox("Aimbot (Hold)", &Settings::godmode);
+                ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize("[...]").x - 10);
+                ImGui::Text("[...]");
                 Checkbox("Magic Bullet", &Settings::demigod);
                 Text("Force Body Aim");
                 ImGui::SameLine(ImGui::GetContentRegionMax().x - ImGui::CalcTextSize("[...]").x - 10);
@@ -364,7 +409,7 @@ inline int Render() {
                 Checkbox("Ignore Unarmed", &Settings::ignore_without_weapon_aim);
                 PopItemWidth();
                 EndChild();
-                    
+
                 SameLine(windowWidth + 10.f);
                 BeginChild("AimS", ImVec2(windowWidth, 0));
                 SetCursorPosY(ImGui::GetCursorPosY() + 5);
@@ -408,6 +453,10 @@ inline int Render() {
 
                 Combo("##eee", &Settings::bone, bonesNames, IM_ARRAYSIZE(bonesNames));
                 
+                Text("Closest Bones Filter");
+                static std::vector<const char*> closestBonesNames = { "Head","Left Foot","Right Foot","Left Ankle","Right Ankle","Left Hand","Right Hand","Neck","Abdomen"};
+                MultiSelectCombo("##clclwcju", closestBonesNames, Settings::closest_bones_filter);
+
                 PopItemWidth();
                 EndChild();
 
@@ -422,6 +471,9 @@ inline int Render() {
                 float windowWidth = (ImGui::GetContentRegionAvail().x - totalSpacing) / 3.0f;
                 PushStyleColor(ImGuiCol_ChildBg, fix(25, 25, 25, 255));
 
+                RenderPedESPPreview();
+                RenderVehESPPreview();
+
                 BeginChild("PEDESP", ImVec2(windowWidth, 0));
                 SetCursorPosY(ImGui::GetCursorPosY() + 5);
                 SetCursorPosX(ImGui::GetCursorPosX() + 10);
@@ -434,10 +486,13 @@ inline int Render() {
                 PushItemWidth(GetContentRegionAvail().x - 10.0f);
                 Text("Maximum Distance");
                 SliderInt("##axdzz", &Settings::esp_max_distance, 1, 1500, "%d%m");
+                Checkbox("Player Names", &Settings::draw_player_name);
+                Checkbox("Player Weapons", &Settings::draw_weapon_name);
+                Checkbox("Player Distance", &Settings::draw_distance);
+                Checkbox("Player NetID", &Settings::draw_net_id);
                 Checkbox("Ignore Self", &Settings::ignore_self);
                 Checkbox("Ignore NPCs", &Settings::ignore_npcs);
                 Checkbox("Ignore Dead", &Settings::ignore_dead);
-                Checkbox("Player Names", &Settings::player_names);
                 Checkbox("Bounding Box", &Settings::bounding_box);
                 ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
                 ImGui::ColorEdit4("##fzff", Settings::bounding_box_col, ImGuiColorEditFlags_NoInputs);
@@ -456,7 +511,7 @@ inline int Render() {
                 Checkbox("Hide Bar when empty", &Settings::emptybars);
                 PopItemWidth();
                 EndChild();
-                
+
                 SameLine(windowWidth + spacing);
                 BeginChild("VEHESP", ImVec2(windowWidth, ImGui::GetContentRegionAvail().x - 424));
                 SetCursorPosY(ImGui::GetCursorPosY() + 5);
@@ -494,13 +549,13 @@ inline int Render() {
                 Checkbox("Friend Override", &Settings::friend_override);
                 Text("Bounding Box");
                 ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
-                ImGui::ColorEdit4("##fwwff", Settings::friend_bounding_box, ImGuiColorEditFlags_NoInputs);
+                ImGui::ColorEdit4("##fwddwff", Settings::friend_bounding_box, ImGuiColorEditFlags_NoInputs);
                 Text("Filled Box");
                 ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
-                ImGui::ColorEdit4("##fwwff", Settings::friend_filled_box, ImGuiColorEditFlags_NoInputs);
+                ImGui::ColorEdit4("##fw22wff", Settings::friend_filled_box, ImGuiColorEditFlags_NoInputs);
                 Text("Skeleton");
                 ImGui::SameLine(ImGui::GetContentRegionMax().x - 30);
-                ImGui::ColorEdit4("##fwwff", Settings::friend_skeleton, ImGuiColorEditFlags_NoInputs);
+                ImGui::ColorEdit4("##fwzxwff", Settings::friend_skeleton, ImGuiColorEditFlags_NoInputs);
                 PopItemWidth();
                 EndChild();
 
@@ -586,16 +641,117 @@ inline int Render() {
                 EndChild();
                 break;
             }
-            case HEAD_WORLD:
-            case HEAD_MISCELLANEOUS:
+            case HEAD_WORLD: {
+                ImGui::BeginChild("##world", ImVec2(ImGui::GetWindowWidth() - 20, ImGui::GetWindowHeight() - 20));
+                {
+                    float windowWidth = (ImGui::GetContentRegionAvail().x - 10.f) / 2.0f;
+                    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertFloat4ToU32(ImVec4(25 / 255.f, 25 / 255.f, 25 / 255.f, 1.0f)));
+
+                    if (ImGui::BeginChild("PEDList", ImVec2(windowWidth, 0), true))
+                    {
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                        ImGui::PushFont(larger_f);
+                        ImGui::Text("Ped List");
+                        ImGui::PopFont();
+                        ImGui::Separator();
+                        ImGui::Indent(3);
+
+                        ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 3);
+                        if (ImGui::BeginListBox("##ped list", ImVec2(windowWidth - 6.f, ImGui::GetContentRegionAvail().y - 105.f)))
+                        {
+                            ImGui::EndListBox();
+                        }
+                        ImGui::PopItemWidth();
+
+                        ImGui::Button("Teleport to Ped", ImVec2(GetContentRegionAvail().x - 4, 0));
+                        ImGui::Button("Add to Friend List", ImVec2(GetContentRegionAvail().x - 4, 0));
+
+                        ImGui::Text("Friend Type");
+                        const char* friendType[] = {
+                            "License (reliable)",
+                            "Net ID",
+                        };
+                        ImGui::Combo("##eezz22e", &Settings::f_type, friendType, IM_ARRAYSIZE(friendType));
+                    }
+                    ImGui::EndChild();
+
+                    ImGui::SameLine(0, 10.f);
+                    if (ImGui::BeginChild("vehlist", ImVec2(windowWidth, 0), true))
+                    {
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                        ImGui::PushFont(larger_f);
+                        ImGui::Text("Vehicle List");
+                        ImGui::PopFont();
+                        ImGui::Separator();
+                        ImGui::Indent(3);
+
+                        ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 15);
+                        if (ImGui::BeginListBox("##veh list", ImVec2(windowWidth - 6.f, ImGui::GetContentRegionAvail().y - 133.f)))
+                        {
+                            ImGui::EndListBox();
+                        }
+                        ImGui::PopItemWidth();
+
+                        ImGui::Button("Unlock Vehicle", ImVec2(GetContentRegionAvail().x - 4, 0));
+                        ImGui::Button("Lock Vehicle", ImVec2(GetContentRegionAvail().x - 4, 0));
+                        ImGui::Button("Teleport to Vehicle", ImVec2(GetContentRegionAvail().x - 4, 0));
+                        ImGui::Button("Teleport into Air", ImVec2(GetContentRegionAvail().x - 4, 0));
+                        ImGui::Button("Set On Fire", ImVec2(GetContentRegionAvail().x - 4, 0));
+                    }
+                    ImGui::EndChild();
+
+                    ImGui::PopStyleColor();
+                }
+                ImGui::EndChild();
+                break;
+            }
+            case HEAD_SETTINGS: {
+                ImGui::BeginChild("##world", ImVec2(ImGui::GetWindowWidth() - 20, ImGui::GetWindowHeight() - 20));
+                {
+                    float windowWidth = (ImGui::GetContentRegionAvail().x - 10.f) / 2.0f;
+                    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImGui::ColorConvertFloat4ToU32(ImVec4(25 / 255.f, 25 / 255.f, 25 / 255.f, 1.0f)));
+
+
+                    ImGui::SameLine(0, 10.f);
+                    if (ImGui::BeginChild("configmenu", ImVec2(windowWidth, 0), true))
+                    {
+                        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 5);
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10);
+                        ImGui::PushFont(larger_f);
+                        ImGui::Text("Config Manager");
+                        ImGui::PopFont();
+                        ImGui::Separator();
+                        ImGui::Indent(3);
+
+                        ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x - 15);
+                        if (ImGui::BeginListBox("##veh list", ImVec2(windowWidth - 6.f, ImGui::GetContentRegionAvail().y - 133.f)))
+                        {
+                            ImGui::EndListBox();
+                        }
+                        ImGui::PopItemWidth();
+
+                        ImGui::Button("Unlock Vehicle", ImVec2(GetContentRegionAvail().x - 4, 0));
+                        ImGui::Button("Lock Vehicle", ImVec2(GetContentRegionAvail().x - 4, 0));
+                        ImGui::Button("Teleport to Vehicle", ImVec2(GetContentRegionAvail().x - 4, 0));
+                        ImGui::Button("Teleport into Air", ImVec2(GetContentRegionAvail().x - 4, 0));
+                        ImGui::Button("Set On Fire", ImVec2(GetContentRegionAvail().x - 4, 0));
+                    }
+                    ImGui::EndChild();
+
+                    ImGui::PopStyleColor();
+                }
+                ImGui::EndChild();
+                break;
+            }
             case HEAD_EXIT:
                 ShowWindow(hwnd, SW_HIDE);
                 exit(0);
                 break;
             }
-            
-            End();
 
+            End();
             PopStyleVar();
         }
 
@@ -656,7 +812,7 @@ inline void NavbarMenu() {
     float verticalOffset = (windowHeight - buttonHeight) * 0.5f;
 
     SameLine();
-    SetCursorPosX(GetWindowWidth() - 410);
+    SetCursorPosX(GetWindowWidth() - 350);
     SetCursorPosY(verticalOffset);
 
     ImGui::PushFont(fa);
@@ -674,13 +830,12 @@ inline void NavbarMenu() {
         }
         ImGui::PopStyleColor();
         ImGui::SameLine();
-    };
+        };
 
     RenderTabButton(HEAD_LOCAL, ICON_FA_USER, "Local");
     RenderTabButton(HEAD_AIM, ICON_FA_CROSSHAIRS, "Aim");
     RenderTabButton(HEAD_VISUAL, ICON_FA_EYE, "Visual");
     RenderTabButton(HEAD_WORLD, ICON_FA_GLOBE_AMERICAS, "World");
-    RenderTabButton(HEAD_MISCELLANEOUS, ICON_FA_BOXES, "Miscellaneous");
     RenderTabButton(HEAD_SETTINGS, ICON_FA_COG, "Settings");
     RenderTabButton(HEAD_EXIT, ICON_FA_SIGN_OUT_ALT, "Exit");
 
@@ -689,6 +844,214 @@ inline void NavbarMenu() {
     End();
     PopStyleVar(3);
     PopStyleColor(3);
+}
+
+void RenderPedESPPreview() {
+    using namespace ImGui;
+
+    ped_struct ped;
+
+    ped.armor = 50;
+    ped.health = 200;
+
+    PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
+    PushStyleVar(ImGuiStyleVar_WindowRounding, 4);
+    PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
+
+    SetNextWindowPos(ImVec2(main_pos.x - 210, main_pos.y), ImGuiCond_Always);
+    Begin(
+        "Ped ESP Preview",
+        nullptr,
+        ImGuiWindowFlags_NoDecoration
+    );
+    Text("Ped ESP Preview");
+    Separator();
+
+    SetWindowSize({ 200, 300 });
+    auto pos = GetWindowPos();
+    auto size = GetWindowSize();
+
+    ped.screen_head = { size.x / 2 + pos.x, pos.y + 50 };
+
+    ped.width = size.x - 90;
+
+    ped.height = 60;
+    ped.distance = 10;
+    ped.weapon_name = "Mosin Nagant";
+    ped.player_name = "Stackz <3";
+
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2 + pos.x, pos.y + 60 }, Vector2{ size.x / 2 + pos.x, pos.y + 70 }));
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2 + pos.x, pos.y + 70 }, Vector2{ size.x / 2.45f + pos.x, pos.y + 80 })); // left shoulder
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2.65f + pos.x, pos.y + 130 }, Vector2{ size.x / 2.45f + pos.x, pos.y + 80 })); // left arm
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2 + pos.x, pos.y + 70 }, Vector2{ size.x / 2.45f + pos.x + (size.x / 2 - size.x / 2.45f) * 2, pos.y + 80 })); // right shoulder
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2.65f + pos.x + (size.x / 2 - size.x / 2.65f) * 2, pos.y + 130 }, Vector2{ size.x / 2.45f + pos.x + (size.x / 2 - size.x / 2.45f) * 2, pos.y + 80 })); // right arm
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2 + pos.x, pos.y + 70 }, Vector2{ size.x / 2 + pos.x, pos.y + 140 })); // spine
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2.35f + pos.x, pos.y + 150 }, Vector2{ size.x / 2 + pos.x, pos.y + 140 })); // left hip
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2.35f + pos.x + (size.x / 2 - size.x / 2.35f) * 2, pos.y + 150 }, Vector2{ size.x / 2 + pos.x, pos.y + 140 })); // right hip
+    ped.bones.push_back(std::make_pair(Vector2{ (size.x / 2.45f) + (((size.x / 2) - (size.x / 2.45f)) * 2) + pos.x, pos.y + 205 }, Vector2{ size.x / 2.35f + pos.x + (size.x / 2 - size.x / 2.35f) * 2, pos.y + 150 })); // right ankle
+    ped.bones.push_back(std::make_pair(Vector2{ (size.x / 2.55f) + (((size.x / 2) - (size.x / 2.55f)) * 2) + pos.x, pos.y + 210 }, Vector2{ (size.x / 2.45f) + (((size.x / 2) - (size.x / 2.45f)) * 2) + pos.x, pos.y + 205 })); // right ankle
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2.45f + pos.x, pos.y + 205 }, Vector2{ size.x / 2.35f + pos.x, pos.y + 150 })); // left ankle
+    ped.bones.push_back(std::make_pair(Vector2{ size.x / 2.45f + pos.x, pos.y + 205 }, Vector2{ size.x / 2.55f + pos.x, pos.y + 210 })); // left foot
+
+    ImDrawList* draw = GetWindowDrawList();
+
+    PushFont(espfont);
+
+    if (Settings::bounding_box)
+    {
+        if (Settings::box_type == 0)
+        {
+            draw->AddRect(
+                ImVec2(ped.screen_head.x - ped.width / 2, ped.screen_head.y),
+                ImVec2(ped.screen_head.x - ped.width / 2 + ped.width, ped.screen_head.y + ped.height * 2.9f),
+                f_2_imcol(Settings::bounding_box_col),
+                0.0f, 0, 1
+            );
+        }
+        else if (Settings::box_type == 1)
+        {
+            ImVec2 pos = ImVec2((ped.screen_head.x - ped.width / 2) + ped.width, (ped.screen_head.y) + ped.height * 2.9f);
+            ImVec2 dim = ImVec2(ped.width, ped.height * 2.9f);
+            float cornersizex = dim.x / 4;
+            float cornersizey = dim.y / 10;
+            auto col = f_2_imcol(Settings::bounding_box_col);
+
+            draw->AddLine(ImVec2(pos), ImVec2(pos.x - cornersizex, pos.y), col, 1);
+            draw->AddLine(ImVec2(pos.x - dim.x, pos.y), ImVec2((pos.x - dim.x) + cornersizex, pos.y), col, 1);
+            draw->AddLine(ImVec2(pos.x - dim.x, pos.y), ImVec2(pos.x - dim.x, pos.y - cornersizey), col, 1);
+            draw->AddLine(ImVec2(pos.x - dim.x, (pos.y - dim.y)), ImVec2(pos.x - dim.x, (pos.y - dim.y) + cornersizey), col, 1);
+            draw->AddLine(ImVec2(pos.x - dim.x, (pos.y - dim.y)), ImVec2((pos.x - dim.x) + cornersizex, pos.y - dim.y), col, 1);
+            draw->AddLine(ImVec2(pos.x, (pos.y - dim.y)), ImVec2(pos.x - cornersizex, pos.y - dim.y), col, 1);
+            draw->AddLine(ImVec2(pos.x, (pos.y - dim.y)), ImVec2(pos.x, (pos.y - dim.y) + cornersizey), col, 1);
+            draw->AddLine(ImVec2(pos.x, pos.y), ImVec2(pos.x, pos.y - cornersizey), col, 1);
+        }
+    }
+
+    if (Settings::filled_box)
+    {
+        draw->AddRectFilled(
+            ImVec2(ped.screen_head.x - ped.width / 2, ped.screen_head.y),
+            ImVec2(ped.screen_head.x - ped.width / 2 + ped.width, ped.screen_head.y + ped.height * 2.9f),
+            f_2_imcol(Settings::filled_box_col),
+            0.0f, 0
+        );
+    }
+
+    if (Settings::healthbar)
+    {
+        if (!(Settings::emptybars && ped.health == 0))
+        {
+            ImU32 healthbar_color = f_2_imcol(Settings::healthbar_col);
+
+            float a[4] = { 28, 26.f, 26, 140 };
+            draw->AddRectFilled(
+                ImVec2(ped.screen_head.x - (ped.width / 2 + 10), ped.screen_head.y + (ped.height * (100 - 100) / 100)),
+                ImVec2(ped.screen_head.x - (ped.width / 2 + 10) + 3, ped.screen_head.y + (ped.height * (100 - 100) / 100) + ped.height * 2.9f),
+                f_2_imcol(a),
+                0.0f, 0
+            );
+
+            draw->AddRectFilled(
+                ImVec2(ped.screen_head.x - (ped.width / 2 + 10), ped.screen_head.y + (ped.height * (100 - 100) / 100)),
+                ImVec2(ped.screen_head.x - (ped.width / 2 + 10) + 3, ped.screen_head.y + ((ped.height * 2.9f) * (200 - ped.health) / 200) + (ped.height * 2.9f) - ((ped.height * 2.9f) * (200 - ped.health) / 200)),
+                healthbar_color,
+                0.0f, 0
+            );
+        }
+    }
+
+    if (Settings::armourbar)
+    {
+        if (!(Settings::emptybars && ped.health == 0))
+        {
+            ImU32 armourbar_color = f_2_imcol(Settings::armourbar_col);
+
+            float a[4] = { 28, 26.f, 26, 140 };
+            draw->AddRectFilled(
+                ImVec2(ped.screen_head.x + (ped.width / 2 + 10), ped.screen_head.y + (ped.height * (100 - 100) / 100)),
+                ImVec2(ped.screen_head.x + (ped.width / 2 + 10) + 3, ped.screen_head.y + (ped.height * (100 - 100) / 100) + ped.height * 2.9f),
+                f_2_imcol(a),
+                0.0f, 0
+            );
+
+            draw->AddRectFilled(
+                ImVec2(ped.screen_head.x + (ped.width / 2 + 10), ped.screen_head.y + ((ped.height * 2.9f) * (100 - ped.armor) / 100)),
+                ImVec2(ped.screen_head.x + (ped.width / 2 + 10) + 3, ped.screen_head.y + ((ped.height * 2.9f) * (100 - ped.armor) / 100) + (ped.height * 2.9f) - ((ped.height * 2.9f) * (100 - ped.armor) / 100)),
+                armourbar_color,
+                0.0f, 0
+            );
+        }
+    }
+
+    if (Settings::skeletons) {
+        for (const auto& bones : ped.bones) {
+            draw->AddLine(ImVec2(bones.first.x, bones.first.y), ImVec2(bones.second.x, bones.second.y), f_2_imcol(Settings::skeleton_col), 2);
+        }
+    }
+
+    if (Settings::draw_weapon_name || Settings::draw_distance || Settings::draw_player_name || Settings::draw_net_id) {
+        std::vector<std::string> lines;
+
+        if (Settings::draw_player_name)
+            lines.push_back(ped.player_name);
+
+        if (Settings::draw_weapon_name)
+            lines.push_back(ped.weapon_name);
+
+        if (Settings::draw_distance)
+            lines.push_back("[" + std::to_string(ped.distance) + "m]");
+
+        if (Settings::draw_net_id)
+            lines.push_back("ID: " + std::to_string(ped.net_id));
+
+        float text_y = ped.screen_head.y + ped.height * 3.0f;
+
+        float white[4] = { 1, 1, 1, 1 };
+        float black[4] = { 0, 0, 0, 1 };
+
+        for (const auto& line : lines) {
+            ImVec2 text_size = CalcTextSize(line.c_str());
+
+            float text_x = ped.screen_head.x - (text_size.x / 2.0f);
+
+            draw->AddText(
+                espfont,
+                calc_text_size(ped.distance),
+                ImVec2(text_x + 1, text_y + 1.f),
+                f_2_imcol(black),
+                line.c_str()
+            );
+
+            draw->AddText(
+                espfont,
+                calc_text_size(ped.distance),
+                ImVec2(text_x, text_y),
+                f_2_imcol(white),
+                line.c_str()
+            );
+
+            text_y += text_size.y;
+        }
+    }
+
+    PopFont();
+    End();
+    PopStyleVar(3);
+}
+
+void RenderVehESPPreview() {
+    using namespace ImGui;
+    SetNextWindowPos(ImVec2(main_pos.x + 1010, main_pos.y), ImGuiCond_Always);
+    Begin(
+        "Vehicle ESP Preview",
+        nullptr,
+        ImGuiWindowFlags_NoDecoration
+    );
+    Text("Vehicle ESP Preview");
+    Separator();
+    Image(reinterpret_cast<ImTextureID>(Veh_Texture), ImVec2(320, 180));
+    SetWindowSize({ 340, 220 });
+    End();
 }
 
 inline bool CreateDeviceD3D(HWND hWnd) {
@@ -701,7 +1064,7 @@ inline bool CreateDeviceD3D(HWND hWnd) {
     g_d3dpp.BackBufferFormat = D3DFMT_UNKNOWN;
     g_d3dpp.EnableAutoDepthStencil = TRUE;
     g_d3dpp.AutoDepthStencilFormat = D3DFMT_D16;
-    g_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_IMMEDIATE;
+    g_d3dpp.PresentationInterval = D3DPRESENT_INTERVAL_ONE;
     if (g_pD3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, D3DCREATE_HARDWARE_VERTEXPROCESSING, &g_d3dpp, &g_pd3dDevice) < 0)
         return false;
     return true;
@@ -737,7 +1100,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         }
         return 0;
     case WM_SYSCOMMAND:
-        if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
+        if ((wParam & 0xfff0) == SC_KEYMENU)
             return 0;
         break;
     case WM_DESTROY:
@@ -745,4 +1108,31 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         return 0;
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
+}
+
+void MultiSelectCombo(const char* label, std::vector<const char*>& items, std::vector<bool>& selection)
+{
+    std::string comboLabel;
+    for (size_t i = 0; i < items.size(); ++i)
+    {
+        if (selection[i])
+        {
+            if (!comboLabel.empty())
+                comboLabel += ", ";
+            comboLabel += items[i];
+        }
+    }
+
+    if (comboLabel.empty())
+        comboLabel = "None";
+
+    if (ImGui::BeginCombo(label, comboLabel.c_str()))
+    {
+        for (int i = 0; i < items.size(); i++) {
+            if (ImGui::Selectable(items[i], selection[i])) {
+                selection[i] = !selection[i];
+            }
+        }
+        ImGui::EndCombo();
+    }
 }

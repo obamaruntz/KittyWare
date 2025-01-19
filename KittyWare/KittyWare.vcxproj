@@ -146,6 +146,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <Optimization>MaxSpeed</Optimization>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -157,6 +158,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\features\visual.cpp" />
     <ClCompile Include="src\mapper\intel_driver.cpp" />
     <ClCompile Include="src\mapper\kdmapper.cpp" />
     <ClCompile Include="src\mapper\portable_executable.cpp" />
@@ -164,6 +166,7 @@
     <ClCompile Include="src\mapper\utils.cpp" />
     <ClCompile Include="src\memory\memory.cpp" />
     <ClCompile Include="src\meow.cpp" />
+    <ClCompile Include="src\raw\espfont.h" />
     <ClCompile Include="vendor\imgui\imgui.cpp" />
     <ClCompile Include="vendor\imgui\imgui_demo.cpp" />
     <ClCompile Include="vendor\imgui\imgui_draw.cpp" />
@@ -174,7 +177,11 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\cache.h" />
+    <ClInclude Include="src\cheat\entity_list.hpp" />
     <ClInclude Include="src\cheat\settings.h" />
+    <ClInclude Include="src\cheat\vehicle_list.hpp" />
+    <ClInclude Include="src\cheat\weapons.h" />
+    <ClInclude Include="src\features\visual.h" />
     <ClInclude Include="src\logger.h" />
     <ClInclude Include="src\mapper\intel_driver.hpp" />
     <ClInclude Include="src\mapper\intel_driver_resource.hpp" />
@@ -191,7 +198,14 @@
     <ClInclude Include="src\raw\icons.h" />
     <ClInclude Include="src\raw\logo.h" />
     <ClInclude Include="src\raw\mont.h" />
+    <ClInclude Include="src\raw\veh.h" />
     <ClInclude Include="src\render\render.h" />
+    <ClInclude Include="src\sdk\calculations.h" />
+    <ClInclude Include="src\sdk\classes\ped.h" />
+    <ClInclude Include="src\sdk\c_ped.hpp" />
+    <ClInclude Include="src\sdk\c_ped_pool.hpp" />
+    <ClInclude Include="src\sdk\c_vehicle.hpp" />
+    <ClInclude Include="src\sdk\other\vector.h" />
     <ClInclude Include="vendor\imgui\imconfig.h" />
     <ClInclude Include="vendor\imgui\imgui.h" />
     <ClInclude Include="vendor\imgui\imgui_impl_dx9.h" />

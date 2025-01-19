@@ -1,4 +1,21 @@
 #pragma once
+#include <mutex>
+#include <vector>
+#include <sdk/other/vector.h>
+
+namespace Globals {
+	inline Vector2 screen = { GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN) };
+	inline Vector2 screen_center = { GetSystemMetrics(SM_CXSCREEN) / 2, GetSystemMetrics(SM_CYSCREEN) / 2 };
+}
+
+namespace Mutex {
+	inline std::mutex vehicle_list_mutex;
+	inline std::mutex entity_list_mutex;
+	inline std::mutex target_bone_mutex;
+	inline std::mutex freecam_mutex;
+	inline std::mutex tracer_mutex;
+	inline std::mutex bullet_impacts_mutex;
+}
 
 namespace Settings {
 	inline bool godmode = false;
@@ -33,6 +50,7 @@ namespace Settings {
 	inline bool ignore_friend_aim = 0;
 	inline bool ignore_without_weapon_aim = 0;
 	inline int bone = 0;
+	inline std::vector<bool> closest_bones_filter(9, true);
 	
 	inline int esp_max_distance = 500;
 	inline bool ignore_self = false;
@@ -40,11 +58,16 @@ namespace Settings {
 	inline bool ignore_npcs = false;
 	inline bool player_names = false;
 	inline bool bounding_box = false;
+	inline int box_type = 0;
 	inline bool filled_box = false;
 	inline bool skeletons = false;
 	inline bool healthbar = false;
 	inline bool armourbar = false;
 	inline bool emptybars = false;
+	inline bool draw_player_name = false;
+	inline bool draw_weapon_name = false;
+	inline bool draw_distance = false;
+	inline bool draw_net_id = false;
 	inline float bounding_box_col[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 	inline float filled_box_col[4] = { 1.0f, 1.0f, 1.0f, 0.3f };
 	inline float skeleton_col[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -71,4 +94,9 @@ namespace Settings {
 	inline int dmg_nums_length = 2;
 	inline bool tracers = false;
 	inline int tracers_length = 1;
+
+	inline int f_type = 0;
+	inline std::vector<std::string> friend_list;
+	inline std::vector<int> friend_list_id;
+	inline int npc_identify_type = 0;
 }
