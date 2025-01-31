@@ -179,5 +179,11 @@
     <ClInclude Include="src\cheat\weapons.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\render\hotkey.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\raw\gear.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -15,6 +15,9 @@
 #include <cheat/settings.h>
 #include <features/visual.h>
 #include <raw/espfont.h>
+#include <raw/gear.h>
+#include <functional>
+#include <render/hotkey.h>
 
 HWND hwnd;
 ImGuiIO* hook_io = nullptr;
@@ -36,11 +39,15 @@ ImVec2 main_size;
 void NavbarMenu();
 void RenderPedESPPreview();
 void RenderVehESPPreview();
-
+void SettingsButton(const char* PopupName, const ImVec2& PopupSize, std::function<void()> ContentProvider);
 void MultiSelectCombo(const char* label, std::vector<const char*>& items, std::vector<bool>& selection);
 
 ImFont* fa;
 ImFont* espfont;
+
+auto* Logo_Texture = LPDIRECT3DTEXTURE9();
+auto* Veh_Texture = LPDIRECT3DTEXTURE9();
+auto* Cog_Texture = LPDIRECT3DTEXTURE9();
 
 ImVec4 fix(int w, int x, int y, int z) {
     return ImVec4(w * (1.0f / 255.0f), x * (1.0f / 255.0f), y * (1.0f / 255.0f), z * (1.0f / 255.0f));
@@ -89,9 +96,6 @@ enum heads {
 
 static heads tab = HEAD_LOCAL;
 
-auto* Logo_Texture = LPDIRECT3DTEXTURE9();
-auto* Veh_Texture = LPDIRECT3DTEXTURE9();
-
 inline ImFont* icons_font = nullptr;
 
 inline int Render() {
@@ -117,6 +121,8 @@ inline int Render() {
     io.IniFilename = nullptr;    io.LogFilename = nullptr;
 
     ImFont* default_f = io.Fonts->AddFontFromMemoryTTF(Sans, sizeof Sans, 20.0f);
+    ImFont* small_f = io.Fonts->AddFontFromMemoryTTF(Sans, sizeof Sans, 16.0f);
+    ImFont* larger_sf = io.Fonts->AddFontFromMemoryTTF(Sans, sizeof Sans, 22.0f);
     ImFont* larger_f = io.Fonts->AddFontFromMemoryTTF(Sans, sizeof Sans, 26.0f);
     espfont = io.Fonts ->AddFontFromMemoryTTF(esp_font, sizeof esp_font, 14.0f);
 
@@ -187,7 +193,7 @@ inline int Render() {
     style.Colors[ImGuiCol_NavWindowingHighlight] = ImVec4(1.0f, 1.0f, 1.0f, 0.699999988079071f);
     style.Colors[ImGuiCol_NavWindowingDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.2000000029802322f);
     style.Colors[ImGuiCol_ModalWindowDimBg] = ImVec4(0.800000011920929f, 0.800000011920929f, 0.800000011920929f, 0.3499999940395355f);
-
+    
     style.TabRounding = 20.f;
     style.FrameRounding = 20.f;
     style.GrabRounding = 20.f;
@@ -233,6 +239,7 @@ inline int Render() {
 
     D3DXCreateTextureFromFileInMemory(g_pd3dDevice, Logo, sizeof Logo, &Logo_Texture);
     D3DXCreateTextureFromFileInMemory(g_pd3dDevice, VehESPPreview_Image, sizeof VehESPPreview_Image, &Veh_Texture);
+    D3DXCreateTextureFromFileInMemory(g_pd3dDevice, Gear_Data, sizeof Gear_Data, &Cog_Texture);
 
     bool done = false;
     while (!done) {
@@ -319,13 +326,37 @@ inline int Render() {
                 SliderFloat("##runsm", &Settings::run_speed, 0.1f, 5.f, "%.1fx");
                 Text("Swim Speed Modifier");
                 SliderFloat("##swimsm", &Settings::swim_speed, 0.1f, 5.f, "%.1fx");
+                Separator();
                 Checkbox("True Godmode", &Settings::godmode);
                 Checkbox("Demi Godmode", &Settings::demigod);
                 Checkbox("Superjump", &Settings::superjump);
-                // heal key
+                Checkbox("Heal Key", &Settings::healkey);
+                ImGui::SameLine();
+                Hotkeys::Hotkey(&Keys::heal_key, "##dddddsa", &Hotkeys::heal_key_bool, "f", 15);
+                SameLine(GetWindowWidth() - 30);
+                SettingsButton("HealthKeyPopup", { 200, 150 }, [larger_sf, small_f]() {
+                    PushFont(larger_sf);
+                    Text("Health Key Settings");
+                    PopFont();
+                    Separator();
+                    PushItemWidth(180.f);
+                    PushFont(small_f);
+                    Text("Health Amount");
+                    SliderInt("##ham", &Settings::healkey_health_amount, 1, 200);
+                    Text("Armour Amount");
+                    SliderInt("##aam", &Settings::healkey_armor_amount, 1, 100);
+                    PopFont();
+                    PopItemWidth();
+                });
+
+                PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 10));
+                Separator();
+                PopStyleVar();
+
                 Checkbox("Noclip", &Settings::noclip);
                 Text("Noclip Speed");
                 SliderFloat("##nclipsped", &Settings::noclip_speed, 0.1f, 5.f, "%.1fx");
+                Separator();
                 if (Button("Teleport to Waypoint", ImVec2(GetContentRegionAvail().x - 10, 0))) {}
                 if (Button("Fill Health", ImVec2(GetContentRegionAvail().x - 10, 0))) {}
                 if (Button("Fill Armour", ImVec2(GetContentRegionAvail().x - 10, 0))) {}
@@ -855,7 +886,6 @@ void RenderPedESPPreview() {
     ped.health = 200;
 
     PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
-    PushStyleVar(ImGuiStyleVar_WindowRounding, 4);
     PushStyleVar(ImGuiStyleVar_WindowMinSize, ImVec2(0, 0));
 
     SetNextWindowPos(ImVec2(main_pos.x - 210, main_pos.y), ImGuiCond_Always);
@@ -968,15 +998,15 @@ void RenderPedESPPreview() {
 
             float a[4] = { 28, 26.f, 26, 140 };
             draw->AddRectFilled(
-                ImVec2(ped.screen_head.x + (ped.width / 2 + 10), ped.screen_head.y + (ped.height * (100 - 100) / 100)),
-                ImVec2(ped.screen_head.x + (ped.width / 2 + 10) + 3, ped.screen_head.y + (ped.height * (100 - 100) / 100) + ped.height * 2.9f),
+                ImVec2(ped.screen_head.x + (ped.width / 2 + 7), ped.screen_head.y + (ped.height * (100 - 100) / 100)),
+                ImVec2(ped.screen_head.x + (ped.width / 2 + 7) + 3, ped.screen_head.y + (ped.height * (100 - 100) / 100) + ped.height * 2.9f),
                 f_2_imcol(a),
                 0.0f, 0
             );
 
             draw->AddRectFilled(
-                ImVec2(ped.screen_head.x + (ped.width / 2 + 10), ped.screen_head.y + ((ped.height * 2.9f) * (100 - ped.armor) / 100)),
-                ImVec2(ped.screen_head.x + (ped.width / 2 + 10) + 3, ped.screen_head.y + ((ped.height * 2.9f) * (100 - ped.armor) / 100) + (ped.height * 2.9f) - ((ped.height * 2.9f) * (100 - ped.armor) / 100)),
+                ImVec2(ped.screen_head.x + (ped.width / 2 + 7), ped.screen_head.y + ((ped.height * 2.9f) * (100 - ped.armor) / 100)),
+                ImVec2(ped.screen_head.x + (ped.width / 2 + 7) + 3, ped.screen_head.y + ((ped.height * 2.9f) * (100 - ped.armor) / 100) + (ped.height * 2.9f) - ((ped.height * 2.9f) * (100 - ped.armor) / 100)),
                 armourbar_color,
                 0.0f, 0
             );
@@ -1017,7 +1047,7 @@ void RenderPedESPPreview() {
             draw->AddText(
                 espfont,
                 calc_text_size(ped.distance),
-                ImVec2(text_x + 1, text_y + 1.f),
+                ImVec2(text_x, text_y + 1.f),
                 f_2_imcol(black),
                 line.c_str()
             );
@@ -1036,12 +1066,13 @@ void RenderPedESPPreview() {
 
     PopFont();
     End();
-    PopStyleVar(3);
+    PopStyleVar(2);
 }
 
 void RenderVehESPPreview() {
     using namespace ImGui;
     SetNextWindowPos(ImVec2(main_pos.x + 1010, main_pos.y), ImGuiCond_Always);
+    SetWindowSize({ 340, 220 });
     Begin(
         "Vehicle ESP Preview",
         nullptr,
@@ -1050,9 +1081,91 @@ void RenderVehESPPreview() {
     Text("Vehicle ESP Preview");
     Separator();
     Image(reinterpret_cast<ImTextureID>(Veh_Texture), ImVec2(320, 180));
-    SetWindowSize({ 340, 220 });
+
+    auto pos = GetWindowPos();
+    auto size = GetWindowSize();
+    ImDrawList* draw = GetWindowDrawList();
+
+    if (Settings::v_nametags || Settings::v_distance || Settings::v_driver_status || Settings::v_lockstatus)
+    {
+        std::vector<std::string> lines;
+
+        if (Settings::v_nametags)
+            lines.push_back("BALLER3");
+
+        if (Settings::v_driver_status)
+            lines.push_back("Has Driver");
+
+        if (Settings::v_lockstatus)
+            lines.push_back("Locked");
+
+        if (Settings::v_distance)
+            lines.push_back("[412m]");
+
+        float white[4] = { 1, 1, 1, 1 };
+        float black[4] = { 0, 0, 0, 1 };
+
+        float text_y = pos.y + 35.f;
+
+        for (const auto& line : lines) {
+            ImVec2 text_size = CalcTextSize(line.c_str());
+
+            float text_x = pos.x + 40.f - (text_size.x / 2.0f);
+
+            draw->AddText(
+                espfont,
+                calc_text_size(412),
+                ImVec2(text_x + 10.f, text_y + 1.f),
+                f_2_imcol(black),
+                line.c_str()
+            );
+
+            draw->AddText(
+                espfont,
+                calc_text_size(412),
+                ImVec2(text_x + 10.f, text_y),
+                f_2_imcol(white),
+                line.c_str()
+            );
+
+            text_y += text_size.y - 5;
+        }
+    }
+
     End();
 }
+
+void SettingsButton(const char* PopupName, const ImVec2& PopupSize, std::function<void()> ContentProvider) {
+
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.f);
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 5);
+
+    ImGui::PushFont(fa);
+
+    ImGui::SetCursorPosY(ImGui::GetCursorPos().y + 3);
+
+    if (ImGui::ImageButton(PopupName, reinterpret_cast<ImTextureID>(Cog_Texture), { 14, 14 })) {
+        ImGui::OpenPopup(PopupName);
+    }
+    ImGui::PopFont();
+
+    ImGui::SetNextWindowSize(PopupSize);
+
+    if (ImGui::BeginPopup(PopupName)) {
+        ContentProvider();
+        ImGui::EndPopup();
+    }
+
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(3);
+}
+
+// ======================================================================================================================
+// ======================================================================================================================
+// ======================================================================================================================
 
 inline bool CreateDeviceD3D(HWND hWnd) {
     if ((g_pD3D = Direct3DCreate9(D3D_SDK_VERSION)) == nullptr)

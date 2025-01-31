@@ -194,11 +194,13 @@
     <ClInclude Include="src\memory\memory.h" />
     <ClInclude Include="src\memory\offsets.h" />
     <ClInclude Include="src\raw\driver.h" />
+    <ClInclude Include="src\raw\gear.h" />
     <ClInclude Include="src\raw\hashes.h" />
     <ClInclude Include="src\raw\icons.h" />
     <ClInclude Include="src\raw\logo.h" />
     <ClInclude Include="src\raw\mont.h" />
     <ClInclude Include="src\raw\veh.h" />
+    <ClInclude Include="src\render\hotkey.h" />
     <ClInclude Include="src\render\render.h" />
     <ClInclude Include="src\sdk\calculations.h" />
     <ClInclude Include="src\sdk\classes\ped.h" />

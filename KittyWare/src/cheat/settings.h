@@ -23,6 +23,7 @@ namespace Settings {
 	inline float run_speed = 1.f;
 	inline float swim_speed = 1.f;
 	inline bool superjump = false;
+	inline bool healkey = false;
 	inline bool noclip = false;
 	inline float noclip_speed = 1.f;
 
@@ -43,7 +44,7 @@ namespace Settings {
 	inline int smoothing_x = 0;
 	inline int smoothing_y = 0;
 	inline int fov = 50;
-	inline int aim_max_distance = 0;
+	inline int aim_max_distance = 500;
 	inline int miss_chance = 0;
 	inline bool ignore_npc_aim = 0;
 	inline bool ignore_dead_aim = 0;
@@ -99,4 +100,38 @@ namespace Settings {
 	inline std::vector<std::string> friend_list;
 	inline std::vector<int> friend_list_id;
 	inline int npc_identify_type = 0;
+
+	inline int healkey_health_amount = 200;
+	inline int healkey_armor_amount = 100;
+}
+
+namespace Hotkeys
+{
+	inline bool heal_key_bool = false;
+	inline bool noclip_key_bool = false;
+	inline bool explosive_melee_bool = false;
+	inline bool explosive_ammo_bool = false;
+	inline bool fire_ammo_bool = false;
+	inline bool aim_key_bool = false;
+	inline bool triggerbot_key_bool = false;
+	inline bool force_body_key_bool = false;
+	inline bool menu_key_bool = false;
+	inline bool exit_key_bool = false;
+	inline bool magic_bullet_key_bool = false;
+	inline bool chams_key_bool = false;
+}
+
+namespace Keys
+{
+	inline int aim_key = 0x2;
+	inline int triggerbot_key = 0x2;
+	inline int magic_bullet_key = 0x0;
+	inline int chams_key = 0x0;
+	inline int force_body_key = 0x0;
+	inline int heal_key = 0x0;
+	inline int zoom_key = 0x0;
+	inline int noclip_key = 0x0;
+	inline int explosive_melee_key = 0x0;
+	inline int explosive_ammo_key = 0x0;
+	inline int fire_ammo_key = 0x0;
 }
